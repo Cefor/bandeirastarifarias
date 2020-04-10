@@ -1,0 +1,336 @@
+---
+title: "Bandeiras Tarifárias - Sudeste"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+## Resumo
+
+Em 2015, a Agência Nacional de Energia Elétrica (Aneel) instituiu a Política de Bandeiras Tarifárias na conta de energia, como forma de dar sinal econômico de curto prazo ao consumidor e, com isso, induzir um comportamento de redução de consumo em períodos críticos. Este trabalho se propõe a avaliar a efetividade da política por meio de duas abordagens estatísticas: a comparação entre médias de variação de consumo, e a regressão linear múltipla a partir de variáveis com potencial explicativo sobre o perfil de consumo de energia elétrica. As duas abordagens foram desenvolvidas a partir de dados de consumidores residenciais da Região Sudeste do Brasil, e convergiram para um resultado comum: a aplicação da Política de Bandeiras Tarifárias não alterou de forma significativa o consumo de energia elétrica, o que sugere possível falha na efetividade dessa política.
+
+## Carga dos dados
+
+```{r, echo=FALSE}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(xts)
+library(car)
+
+# Leitura e organização dos dados
+sudeste <- read.csv2("RegiaoSudeste.csv", sep=";", colClasses = "character")
+sudeste <- na.exclude(sudeste)
+# conversão de tipos
+options(digits = 15)
+sudeste$data <- as.Date(sudeste$data, format="%d/%m/%Y")
+sudeste$mes <- as.factor(sudeste$mes)
+sudeste$bandeira <- as.factor(sudeste$bandeira)
+sudeste$se_residencial_N <- as.numeric(sudeste$se_residencial_N) / 1000.0
+sudeste$se_temperatura <- as.numeric(sudeste$se_temperatura) * 1.0
+sudeste$se_UC_residencial <- as.numeric(sudeste$se_UC_residencial)
+sudeste$pib <- as.numeric(sudeste$pib)
+sudeste$band_categoria <- as.factor(sudeste$band_categoria)
+sudeste<-na.exclude(sudeste)
+sudeste$bandeira <- as.character(sudeste$bandeira)
+sudeste$bandeira <- as.factor(sudeste$bandeira)
+sudeste$mes <- as.character(sudeste$mes)
+sudeste$mes <- as.factor(sudeste$mes)
+
+# cria variável categoria 2 substituindo o valor "não", de 2004 a 2014, por "verde"
+sudeste$band_categoria2 <- as.character(sudeste$band_categoria)
+sudeste$band_categoria2[sudeste$band_categoria2 == "sem bandeira"] <- "verde"
+sudeste$band_categoria2 <- as.factor(sudeste$band_categoria2)
+sudeste$band_categoria2 <- relevel(sudeste$band_categoria2, ref = "verde")
+
+# cria variável nmes com numero do mês no início
+nmes <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12")
+names(nmes) <- c("janeiro", "fevereiro", "março", "abril", "maio", "junho", 
+                 "julho", "agosto", "setembro", "outubro", "novembro", "dezembro")
+sudeste$nmes <- sapply(as.character(sudeste$mes), function(x) paste0(nmes[x],x))
+sudeste$nmes <- as.factor(sudeste$nmes)
+
+# cria variáveis com indicação da variação do consumo
+sudeste$var_res_nom <- 0 # variação nominal
+sudeste$var_res_per <- 0 # variação percentual
+for(i in 2:nrow(sudeste)){
+  sudeste$var_res_nom[i] <- sudeste$se_residencial_N[i] - sudeste$se_residencial_N[i-1]
+  sudeste$var_res_per[i] <- (sudeste$se_residencial_N[i] / sudeste$se_residencial_N[i-1] - 1) * 100
+}
+
+head(sudeste)
+```
+
+
+## Consumo no tempo
+
+```{r, echo=FALSE}
+#### separação dos dados por ano
+library(forcats) # pacote para reordenar os fatores
+ano2005<-subset(sudeste, data>= "2005-01-01" & data<= "2005-12-01")
+ano2005$mes <- fct_reorder(ano2005$mes,1:12)
+ano2006<-subset(sudeste, data>= "2006-01-01" & data<= "2006-12-01")
+ano2006$mes <- fct_reorder(ano2006$mes,1:12)
+ano2007<-subset(sudeste, data>= "2007-01-01" & data<= "2007-12-01")
+ano2007$mes <- fct_reorder(ano2007$mes,1:12)
+ano2008<-subset(sudeste, data>= "2008-01-01" & data<= "2008-12-01")
+ano2008$mes <- fct_reorder(ano2008$mes,1:12)
+ano2009<-subset(sudeste, data>= "2009-01-01" & data<= "2009-12-01")
+ano2009$mes <- fct_reorder(ano2009$mes,1:12)
+ano2010<-subset(sudeste, data>= "2010-01-01" & data<= "2010-12-01")
+ano2010$mes <- fct_reorder(ano2010$mes,1:12)
+ano2011<-subset(sudeste, data>= "2011-01-01" & data<= "2011-12-01")
+ano2011$mes <- fct_reorder(ano2011$mes,1:12)
+ano2012<-subset(sudeste, data>= "2012-01-01" & data<= "2012-12-01")
+ano2012$mes <- fct_reorder(ano2012$mes,1:12)
+ano2013<-subset(sudeste, data>= "2013-01-01" & data<= "2013-12-01")
+ano2013$mes <- fct_reorder(ano2013$mes,1:12)
+ano2014<-subset(sudeste, data>= "2014-01-01" & data<= "2014-12-01")
+ano2014$mes <- fct_reorder(ano2014$mes,1:12)
+ano2015<-subset(sudeste, data>= "2015-01-01" & data<= "2015-12-01")
+ano2015$mes <- fct_reorder(ano2015$mes,1:12)
+ano2016<-subset(sudeste, data>= "2016-01-01" & data<= "2016-12-01")
+ano2016$mes <- fct_reorder(ano2016$mes,1:12)
+ano2017<-subset(sudeste, data>= "2017-01-01" & data<= "2017-12-01")
+ano2017$mes <- fct_reorder(ano2017$mes,1:12)
+
+### gráfico de consumo em cada ano registrado na região sudeste
+ggplot()+ ylab("Consumo de Energia Elétrica Residencial (KW)\nRegião Sudeste") + xlab("") +
+  geom_line(data=ano2005, aes(x=mes, y=se_residencial_N, group =1), colour="red")+
+  ggplot2::annotate("text", x=nrow(ano2005), y=last(ano2005$se_residencial_N), label="2005")+
+  geom_line(data=ano2006, aes(x=mes, y=se_residencial_N, group =1), colour="black")+
+  ggplot2::annotate("text", x=nrow(ano2006), y=last(ano2006$se_residencial_N), label="2006")+
+  geom_line(data=ano2007, aes(x=mes, y=se_residencial_N, group =1), colour="blue")+
+  ggplot2::annotate("text", x=nrow(ano2007), y=last(ano2007$se_residencial_N), label="2007")+
+  geom_line(data=ano2008, aes(x=mes, y=se_residencial_N, group =1), colour="hotpink3", size=2)+
+  ggplot2::annotate("text", x=nrow(ano2008), y=last(ano2008$se_residencial_N), label="2008")+
+  geom_line(data=ano2009, aes(x=mes, y=se_residencial_N, group =1), colour="darkred")+
+  ggplot2::annotate("text", x=nrow(ano2009), y=last(ano2009$se_residencial_N), label="2009")+
+  geom_line(data=ano2010, aes(x=mes, y=se_residencial_N, group =1), colour="darkblue")+
+  ggplot2::annotate("text", x=nrow(ano2010), y=last(ano2010$se_residencial_N), label="2010")+
+  geom_line(data=ano2011, aes(x=mes, y=se_residencial_N, group =1), colour="green")+
+  ggplot2::annotate("text", x=nrow(ano2011), y=last(ano2011$se_residencial_N), label="2011")+
+  geom_line(data=ano2012, aes(x=mes, y=se_residencial_N, group =1), colour="darkgreen", linetype=2, size=2)+
+  ggplot2::annotate("text", x=nrow(ano2012), y=last(ano2012$se_residencial_N), label="2012")+ 
+  geom_line(data=ano2013, aes(x=mes, y=se_residencial_N, group =1), colour="maroon", linetype= 3, size=2)+
+  ggplot2::annotate("text", x=nrow(ano2013), y=last(ano2013$se_residencial_N), label="2013")+
+  geom_line(data=ano2014, aes(x=mes, y=se_residencial_N, group =1), colour="grey14", size=2)+
+  ggplot2::annotate("text", x=nrow(ano2014), y=last(ano2014$se_residencial_N), label="2014")+
+  geom_line(data=ano2015, aes(x=mes, y=se_residencial_N, group =1), colour="purple4", size=3)+
+  ggplot2::annotate("text", x=nrow(ano2015), y=last(ano2015$se_residencial_N), label="2015")+
+  geom_line(data=ano2016, aes(x=mes, y=se_residencial_N, group =1), colour="cyan")+
+  ggplot2::annotate("text", x=nrow(ano2016), y=last(ano2016$se_residencial_N), label="2016")+
+  geom_line(data=ano2017, aes(x=mes, y=se_residencial_N, group =1), colour="tan4")+
+  ggplot2::annotate("text", x=nrow(ano2017), y=last(ano2017$se_residencial_N), label="2017")+
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=0.5))
+
+sudeste$ano <- as.character(format(sudeste$data,'%Y'))
+p <- ggplot(sudeste, aes(x=ano, y=se_residencial_N))+geom_boxplot()+ggtitle("Consumo Residencial de Energia Elétrica na Região Sudeste entre 2005 e 2018.")+ylab("Consumo Residencial de Energia Elétrica (KW)\nRegião Sudeste")
+p <- p+theme(
+plot.title = element_text(color="black", size=12, face="bold.italic"),
+axis.title.x = element_text(color="black", size=11, face="bold"),
+axis.title.y = element_text(color="black", size=10, face="bold")
+)
+p
+
+```
+
+## Base de dados
+
+### Variáveis
+
+* **data**: mês/ano em que foi medido o consumo, no formato "AAAA-MM-01"; estabelece à série temporal doconsumo.
+* **mes**: variável categórica indicando o mês do ano.
+* **bandeira**: variável categórica que indica se foi aplicada bandeira em determinado mês; assume os valores "sim" e "não".
+* **se_residencial_N**: consumo residencial nominal de energia elétrica na Região Sudeste em KW.
+* **se_temperatura**: temperatura média mensal.
+* **se_UC_residencial**: quantidade de unidades residenciais que demandam energia elétrica.
+* **pib**: produto interno bruto aferido no mês.
+* **band_categoria**: categorias do Sistema de Bandeiras Tarifárias; assume os valores: *verde*, *amarela*, *vermelha* e *vermelha 2*.
+
+### Variáveis auxiliares
+
+* **band_categoria2**: igual à variável **band_categoria2**, no entanto, assume o valor *verde* para os anos anteriores a 2015, quando foi iniciado o Sistema de Bandeiras Tarifárias.
+* **nmes**: extensão da variável mês, contendo, no início, o número do mês para fins de ordenação.
+* **var_res_nom**: variação do consumo residencial nominal mês a mês: *var_res_nom = se_residencial_N[mês atual] - se_residencial_N[mês anterior]*
+* **var_res_per**: variação percentual do consumo residencial nominal mês a mês: *var_res_per = (se_residencial_N[mês atual] / se_residencial_N[mês anterior] - 1) \* 100*
+
+```{r, echo=FALSE}
+str(sudeste)
+```
+
+### Período da análise
+
+```{r}
+# as bandeiras passaram a vigorar em janeiro de 2015
+
+ini <- "2005-01-01"
+fim <- "2018-05-01"
+
+sudlm <- subset(sudeste, data >= ini & data <= fim)
+
+# de "2015-01-01" a "2018-04-01"
+# sudlm$band_categoria <- relevel(sudlm$band_categoria, ref = "verde")
+
+# de "2005-01-01" a "2018-04-01"
+sudlm$band_categoria <- relevel(sudlm$band_categoria, ref = "sem bandeira")
+
+```
+
+### Correlações
+
+```{r, echo=FALSE}
+pairs(se_residencial_N ~ data + bandeira + se_temperatura + se_UC_residencial + pib + var_res_per + var_res_nom,
+      panel = panel.smooth,
+      data = sudlm, main = "Consumo Energia - SE")
+
+############################
+# COEFICIENTES DE CORRELAÇÃO
+############################
+library(corrplot)
+cor(data.frame(consumo = sudlm$se_residencial_N,
+               var.consumo = sudlm$var_res_per,
+               Unidades.cons = sudlm$se_UC_residencial,
+               Temp = sudlm$se_temperatura,
+               PIB = sudlm$pib)) %>%
+  corrplot(method = "number")
+
+```
+
+### Modelo Linear
+
+```{r}
+# TESTE DE MODELOS COM VÁRIAS VARIÁVEIS
+library(nortest)
+
+# iniciando pelas variáveis quantitativas com forte correlação
+se1 <- lm(se_residencial_N ~ se_UC_residencial + pib, data=sudlm)
+summary(se1)
+shapiro.test(se1$residuals) # não passa no teste
+lillie.test(se1$residuals)
+ks.test( (se1$residuals-mean(se1$residuals))/sd(se1$residuals), "pnorm")
+vif(se1)
+
+# inclui temperatura
+se2 <- lm(se_residencial_N ~ se_UC_residencial + pib + se_temperatura, data=sudlm)
+summary(se2)
+shapiro.test(se2$residuals) # não passa no teste
+ks.test( (se2$residuals-mean(se2$residuals))/sd(se2$residuals), "pnorm")
+vif(se2)
+anova(se1, se2)
+
+# inclui nmes
+se3 <- lm(se_residencial_N ~ se_UC_residencial + pib + se_temperatura + nmes, data=sudlm)
+summary(se3)
+shapiro.test(se3$residuals) # não passa no teste
+ks.test( (se3$residuals-mean(se3$residuals))/sd(se3$residuals), "pnorm")
+vif(se3)
+anova(se1,se2,se3)
+# temperarura não é significativa mas a redução da variação residual é
+
+# inclui band_categoria
+se4 <- lm(se_residencial_N ~ se_UC_residencial + pib + se_temperatura + nmes + band_categoria, data=sudlm)
+summary(se4)
+shapiro.test(se4$residuals) # não passa no teste
+ks.test( (se4$residuals-mean(se4$residuals))/sd(se4$residuals), "pnorm") # PASSOU NO TESTE
+vif(se4)
+
+# retira band_categoris e inclui band_categoria2
+se5 <- lm(se_residencial_N ~ se_UC_residencial + pib + se_temperatura + nmes + band_categoria2, data=sudlm)
+summary(se5)
+shapiro.test(se5$residuals) # não passa no teste
+ks.test( (se5$residuals-mean(se5$residuals))/sd(se5$residuals), "pnorm")
+vif(se5)
+
+
+```
+
+### Análise gráfica das premissas
+
+MODELO ESCOLHIDO
+```{r}
+# modelo escolhido 
+summary(se4)
+
+# testes de normalidade
+  
+  xfit<-seq(min(augment(se4)$.std.resid),max(augment(se4)$.std.resid),length=100) 
+  yfit<-dnorm(xfit)
+  hist(augment(se4)$.std.resid, freq=FALSE, main="Distribuição de Resíduos Padronizados", xlab="Resíduos Padronizados", ylab="Densidade" )
+  lines(xfit, yfit)
+  
+  
+  spreadLevelPlot(se4, main="Resíduos PAdronizados X Valores ajustados", xlab="Valores ajustados (kW)", ylab="Resíduos Padronizados")
+  
+  qqPlot(se4, main="QQ plot", ylab="Resíduos Padronizados")
+  
+  qplot(sample = se4$residuals) +
+    labs(x = "Theoretical Values", y = "Observed Values")
+  
+
+```
+
+### Teste de Hipótese - *t-Student*
+
+#### Período 2005-2018
+
+```{r}
+
+
+#### separação dos consumos por bandeira
+consumo_sem_B<-subset(sudlm, bandeira=="não")
+consumo_com_B<-subset(sudlm, bandeira=="sim")
+
+### boxplots para médias de consumo no sudeste
+boxplot(consumo_sem_B$se_residencial_N,consumo_com_B$se_residencial_N)
+
+### boxplots para as variações médias de consumo no sudeste
+boxplot(consumo_sem_B$var_res_nom, consumo_com_B$var_res_nom)
+boxplot(consumo_sem_B$var_res_per, consumo_com_B$var_res_per)
+
+### teste de normalidade 
+shapiro.test(consumo_sem_B$var_res_nom)
+shapiro.test(consumo_com_B$var_res_nom)
+
+shapiro.test(consumo_sem_B$var_res_per)
+shapiro.test(consumo_com_B$var_res_per)
+
+### teste t-Student
+t.test(consumo_sem_B$var_res_per, consumo_com_B$var_res_per)
+t.test(consumo_sem_B$var_res_nom, consumo_com_B$var_res_nom)
+
+```
+
+#### Período 2015-2018
+
+```{r}
+
+
+#### separação dos consumos por bandeira
+# o teste estatístico se dá a partir de 2015 quando as bandeiras passaram a vigorar
+consumo_sem_B<-subset(sudeste, bandeira=="não" & data>= "2015-01-01")
+consumo_com_B<-subset(sudeste, bandeira=="sim" & data>= "2015-01-01")
+
+### boxplots para médias de consumo no sudeste
+boxplot(consumo_sem_B$se_residencial_N,consumo_com_B$se_residencial_N)
+
+### boxplots para as variações médias de consumo no sudeste
+boxplot(consumo_sem_B$var_res_nom, consumo_com_B$var_res_nom)
+boxplot(consumo_sem_B$var_res_per, consumo_com_B$var_res_per)
+
+### teste de normalidade 
+shapiro.test(consumo_sem_B$var_res_nom)
+shapiro.test(consumo_com_B$var_res_nom)
+
+shapiro.test(consumo_sem_B$var_res_per)
+shapiro.test(consumo_com_B$var_res_per)
+
+### teste t-Student
+t.test(consumo_sem_B$var_res_per, consumo_com_B$var_res_per)
+t.test(consumo_sem_B$var_res_nom, consumo_com_B$var_res_nom)
+
+```
+
