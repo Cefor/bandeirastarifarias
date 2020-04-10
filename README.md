@@ -14,7 +14,8 @@ A aplicação da Política de Bandeiras Tarifárias na Região Sudeste do Brasil
 
 Contribuir para a discussão em torno de proposição em tramitação na Câmara Federal e para a avaliação dessa política pública.
 
-## Link para o artigo (E-Legis, V. 13 N. 31 Jan./Abr. 2020)
+## Link para o artigo 
+(E-Legis, V. 13 N. 31 Jan./Abr. 2020)
 
 [AVALIAÇÃO DA EFETIVIDADE DA POLÍTICA DE BANDEIRAS TARIFÁRIAS NA REGIÃO SUDESTE DO BRASIL (2015-2018)](http://e-legis.camara.leg.br/cefor/index.php/e-legis/article/view/539)
 
