@@ -19,3 +19,7 @@ Contribuir para a discussão em torno de proposição em tramitação na Câmara
 
 [AVALIAÇÃO DA EFETIVIDADE DA POLÍTICA DE BANDEIRAS TARIFÁRIAS NA REGIÃO SUDESTE DO BRASIL (2015-2018)](http://e-legis.camara.leg.br/cefor/index.php/e-legis/article/view/539)
 
+## Grupo de Pesquisa
+
+Pesquisa realizada no âmbito do grupo [Ciência de Dados Aplicada ao Estudo do Poder Legislativo: abordagem computacional e métodos de análise](http://dgp.cnpq.br/dgp/espelhogrupo/9712095383739020)
+
